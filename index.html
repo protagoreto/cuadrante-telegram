@@ -90,15 +90,18 @@
         const API_URL = "https://script.google.com/macros/s/AKfycbykEL_-xeD3I78sA6H22mZy50w6ECAbye9LVBZ2iLZ7w123Pt6FJ8f4kG48W0DmQTU0/exec";
 
         let listaPersonal = [];
+        let historialMinutos = {};
 
         document.getElementById('fecha').valueAsDate = new Date();
 
+        // 1. Cargar datos iniciales
         window.onload = function() {
             fetch(API_URL)
             .then(res => res.json())
             .then(datos => {
                 if (datos.estado === "exito") {
                     listaPersonal = datos.personal;
+                    historialMinutos = datos.historial || {};
                     document.getElementById('loading-overlay').style.display = "none";
                     document.getElementById('btn-add-user').style.display = "block";
                     document.getElementById('btn-submit').style.display = "block";
@@ -114,20 +117,46 @@
             });
         };
 
+        // 2. Recalcular desplegables si se cambia la fecha
+        document.getElementById('fecha').addEventListener('change', function() {
+            const idJornadaActual = "J-" + this.value.replace(/-/g, "");
+            const selects = document.querySelectorAll('.user-id');
+            
+            selects.forEach(select => {
+                const valorPrevio = select.value;
+                select.innerHTML = generarOpcionesHTML(idJornadaActual);
+                select.value = valorPrevio; // Mantiene el usuario seleccionado si sigue existiendo
+            });
+        });
+
+        // 3. Generar las opciones del menú con los minutos acumulados
+        function generarOpcionesHTML(idJornada) {
+            let opcionesHTML = `<option value="">Seleccionar...</option>`;
+            
+            listaPersonal.forEach(persona => {
+                let minAcumulados = 0;
+                if (historialMinutos[idJornada] && historialMinutos[idJornada][persona.id]) {
+                    minAcumulados = historialMinutos[idJornada][persona.id];
+                }
+                
+                let textoMinutos = minAcumulados > 0 ? ` (${minAcumulados} min)` : "";
+                opcionesHTML += `<option value="${persona.id}">${persona.nombre}${textoMinutos}</option>`;
+            });
+            return opcionesHTML;
+        }
+
+        // 4. Añadir nueva fila
         function agregarFilaUsuario() {
             const container = document.getElementById('usuarios-container');
             const row = document.createElement('div');
             row.className = 'usuario-row'; 
             
-            let opcionesHTML = `<option value="">Seleccionar...</option>`;
-            listaPersonal.forEach(persona => {
-                opcionesHTML += `<option value="${persona.id}">${persona.nombre}</option>`;
-            });
+            const fechaSeleccionada = document.getElementById("fecha").value;
+            const idJornadaActual = "J-" + fechaSeleccionada.replace(/-/g, "");
 
-            // NUEVO: Se añade el botón de eliminar (X) y la función onclick="this.parentElement.remove()"
             row.innerHTML = `
                 <select class="user-id">
-                    ${opcionesHTML}
+                    ${generarOpcionesHTML(idJornadaActual)}
                 </select>
                 <input type="number" class="user-sorteo" placeholder="Nº Sorteo">
                 <button class="btn-delete" onclick="this.parentElement.remove()">X</button>
@@ -172,7 +201,6 @@
             const filasUsuarios = document.querySelectorAll('.usuario-row');
             let personalActivo = [];
             
-            // NUEVO: Variables para detectar usuarios duplicados
             let idsSeleccionados = new Set();
             let errorDuplicados = false;
 
@@ -181,7 +209,6 @@
                 let sorteo = parseInt(fila.querySelector('.user-sorteo').value);
                 
                 if (id) {
-                    // Validar si el ID ya fue seleccionado en otra fila
                     if (idsSeleccionados.has(id)) {
                         errorDuplicados = true;
                     }
@@ -193,7 +220,6 @@
                 }
             });
 
-            // NUEVO: Bloqueo de ejecución si hay duplicados
             if (errorDuplicados) {
                 estadoDiv.innerText = "Error: Un mismo componente no puede estar varias veces en el reparto.";
                 estadoDiv.style.color = "red";
@@ -230,6 +256,9 @@
                     informeDiv.style.display = "block";
                     btnCopiar.style.display = "block";
                     webapp.HapticFeedback.notificationOccurred("success");
+                    
+                    // Al guardar con éxito, refresca la página para cargar los nuevos minutos acumulados
+                    setTimeout(() => window.location.reload(), 2000);
                 } else {
                     estadoDiv.innerText = "Error: " + datos.mensaje;
                     estadoDiv.style.color = "red";
@@ -252,3 +281,4 @@
     </script>
 </body>
 </html>
+
