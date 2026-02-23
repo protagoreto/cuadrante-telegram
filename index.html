@@ -11,18 +11,34 @@
         label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 14px; }
         input, select { width: 100%; padding: 10px; box-sizing: border-box; border: 1px solid var(--tg-theme-hint-color, #ccc); border-radius: 8px; background-color: var(--tg-theme-secondary-bg-color, #f4f4f5); color: var(--tg-theme-text-color, #000); font-size: 14px; }
         
-        /* NUEVO DISEÑO AISLADO */
-        /* 1. Fila para las horas (reparto exacto al 50%) */
         .row-horas { display: flex; gap: 15px; margin-bottom: 15px; }
         .row-horas .form-group { flex: 1; margin-bottom: 0; }
 
-        /* 2. Fila para el personal (reparto asimétrico 65% / 35%) */
-        .usuario-row { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; }
-        .usuario-row select { width: 65%; }
-        .usuario-row input { width: 35%; }
+        /* NUEVO DISEÑO: Ajuste de proporciones para incluir el botón de eliminar */
+        .usuario-row { display: flex; gap: 8px; margin-bottom: 10px; align-items: center; }
+        .usuario-row select { width: 55%; }
+        .usuario-row input { width: 30%; }
         
-        button { width: 100%; padding: 12px; background-color: var(--tg-theme-button-color, #3390ec); color: var(--tg-theme-button-text-color, #fff); border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 10px; }
-        .btn-secondary { background-color: var(--tg-theme-hint-color, #999); margin-bottom: 15px; }
+        /* NUEVO BOTÓN: Estilo del botón rojo de eliminar fila */
+        .btn-delete { 
+            width: 15%; 
+            height: 40px;
+            background-color: var(--tg-theme-destructive-text-color, #ff3b30); 
+            color: white; 
+            border: none; 
+            border-radius: 8px; 
+            font-weight: bold; 
+            font-size: 16px; 
+            cursor: pointer; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            padding: 0;
+        }
+
+        button.btn-main { width: 100%; padding: 12px; background-color: var(--tg-theme-button-color, #3390ec); color: var(--tg-theme-button-text-color, #fff); border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+        .btn-secondary { width: 100%; padding: 12px; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; background-color: var(--tg-theme-hint-color, #999); color: #fff; margin-bottom: 15px; }
+        
         #informe-container { display: none; margin-top: 20px; padding: 15px; background-color: var(--tg-theme-secondary-bg-color, #f4f4f5); border-radius: 8px; white-space: pre-wrap; font-family: monospace; font-size: 14px; }
         #loading-overlay { text-align: center; font-weight: bold; color: var(--tg-theme-hint-color, #999); margin-bottom: 15px; }
     </style>
@@ -58,12 +74,12 @@
     
     <button class="btn-secondary" id="btn-add-user" onclick="agregarFilaUsuario()" style="display:none;">+ Añadir otro componente</button>
 
-    <button onclick="procesarDatos()" id="btn-submit" style="display:none;">Generar Cuadrante</button>
+    <button class="btn-main" onclick="procesarDatos()" id="btn-submit" style="display:none;">Generar Cuadrante</button>
     
     <div id="mensaje-estado" style="margin-top: 10px; text-align: center; font-weight: bold;"></div>
     
     <div id="informe-container"></div>
-    <button id="btn-copiar" style="display:none;" onclick="copiarInforme()">Copiar Informe al Portapapeles</button>
+    <button class="btn-main" id="btn-copiar" style="display:none;" onclick="copiarInforme()">Copiar Informe al Portapapeles</button>
 
     <script>
         const webapp = window.Telegram.WebApp;
@@ -101,18 +117,20 @@
         function agregarFilaUsuario() {
             const container = document.getElementById('usuarios-container');
             const row = document.createElement('div');
-            row.className = 'usuario-row'; // Usa la clase de personal
+            row.className = 'usuario-row'; 
             
             let opcionesHTML = `<option value="">Seleccionar...</option>`;
             listaPersonal.forEach(persona => {
                 opcionesHTML += `<option value="${persona.id}">${persona.nombre}</option>`;
             });
 
+            // NUEVO: Se añade el botón de eliminar (X) y la función onclick="this.parentElement.remove()"
             row.innerHTML = `
                 <select class="user-id">
                     ${opcionesHTML}
                 </select>
                 <input type="number" class="user-sorteo" placeholder="Nº Sorteo">
+                <button class="btn-delete" onclick="this.parentElement.remove()">X</button>
             `;
             container.appendChild(row);
         }
@@ -143,6 +161,7 @@
             if (!fecha || !horaInicio || !horaFin) {
                 estadoDiv.innerText = "Faltan datos de tiempo.";
                 estadoDiv.style.color = "red";
+                webapp.HapticFeedback.notificationOccurred("error");
                 return;
             }
 
@@ -152,17 +171,40 @@
 
             const filasUsuarios = document.querySelectorAll('.usuario-row');
             let personalActivo = [];
+            
+            // NUEVO: Variables para detectar usuarios duplicados
+            let idsSeleccionados = new Set();
+            let errorDuplicados = false;
+
             filasUsuarios.forEach(fila => {
                 let id = fila.querySelector('.user-id').value;
                 let sorteo = parseInt(fila.querySelector('.user-sorteo').value);
-                if (id && !isNaN(sorteo)) {
-                    personalActivo.push({ id_usuario: id, sorteo: sorteo });
+                
+                if (id) {
+                    // Validar si el ID ya fue seleccionado en otra fila
+                    if (idsSeleccionados.has(id)) {
+                        errorDuplicados = true;
+                    }
+                    idsSeleccionados.add(id);
+
+                    if (!isNaN(sorteo)) {
+                        personalActivo.push({ id_usuario: id, sorteo: sorteo });
+                    }
                 }
             });
+
+            // NUEVO: Bloqueo de ejecución si hay duplicados
+            if (errorDuplicados) {
+                estadoDiv.innerText = "Error: Un mismo componente no puede estar varias veces en el reparto.";
+                estadoDiv.style.color = "red";
+                webapp.HapticFeedback.notificationOccurred("error");
+                return;
+            }
 
             if (personalActivo.length === 0) {
                 estadoDiv.innerText = "Añade al menos un usuario válido con su sorteo.";
                 estadoDiv.style.color = "red";
+                webapp.HapticFeedback.notificationOccurred("warning");
                 return;
             }
 
@@ -191,11 +233,13 @@
                 } else {
                     estadoDiv.innerText = "Error: " + datos.mensaje;
                     estadoDiv.style.color = "red";
+                    webapp.HapticFeedback.notificationOccurred("error");
                 }
             })
             .catch(err => {
-                estadoDiv.innerText = "Error de conexión.";
+                estadoDiv.innerText = "Error de conexión con la base de datos.";
                 estadoDiv.style.color = "red";
+                webapp.HapticFeedback.notificationOccurred("error");
             });
         }
 
@@ -208,4 +252,3 @@
     </script>
 </body>
 </html>
-
