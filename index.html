@@ -63,20 +63,18 @@
     <div id="informe-container"></div>
     <button id="btn-copiar" style="display:none;" onclick="copiarInforme()">Copiar Informe al Portapapeles</button>
 
-    <script>
-        const webapp = window.Telegram.WebApp;
-        webapp.ready();
-        webapp.expand();
+   window.onload = function() {
+            // 1. Añadimos un timestamp para engañar a la caché de Telegram y forzar una lectura nueva
+            const urlSinCache = API_URL + "?t=" + new Date().getTime();
 
-        const API_URL = "https://script.google.com/macros/s/AKfycbykEL_-xeD3I78sA6H22mZy50w6ECAbye9LVBZ2iLZ7w123Pt6FJ8f4kG48W0DmQTU0/exec";
-
-        let listaPersonal = [];
-
-        document.getElementById('fecha').valueAsDate = new Date();
-
-        window.onload = function() {
-            fetch(API_URL)
-            .then(res => res.json())
+            fetch(urlSinCache, {
+                method: "GET",
+                redirect: "follow" // 2. Obligatorio para que las apps móviles sigan el desvío interno de Google
+            })
+            .then(res => {
+                if (!res.ok) throw new Error("Fallo de red o bloqueo HTTP " + res.status);
+                return res.json();
+            })
             .then(datos => {
                 if (datos.estado === "exito") {
                     listaPersonal = datos.personal;
@@ -84,6 +82,17 @@
                     document.getElementById('btn-add-user').style.display = "block";
                     document.getElementById('btn-submit').style.display = "block";
                     agregarFilaUsuario();
+                } else {
+                    document.getElementById('loading-overlay').innerText = "❌ Error en Google: " + datos.mensaje;
+                    document.getElementById('loading-overlay').style.color = "red";
+                }
+            })
+            .catch(err => {
+                // 3. Imprimimos el error técnico literal en pantalla para saber qué está bloqueando la app
+                document.getElementById('loading-overlay').innerText = "❌ Fallo técnico: " + err.message;
+                document.getElementById('loading-overlay').style.color = "red";
+            });
+        };
                 } else {
                     document.getElementById('loading-overlay').innerText = "❌ Error al cargar personal.";
                     document.getElementById('loading-overlay').style.color = "red";
@@ -216,4 +225,5 @@
     </script>
 </body>
 </html>
+
 
