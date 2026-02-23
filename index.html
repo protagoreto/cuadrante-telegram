@@ -11,10 +11,12 @@
         label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 14px; }
         input, select { width: 100%; padding: 10px; box-sizing: border-box; border: 1px solid var(--tg-theme-hint-color, #ccc); border-radius: 8px; background-color: var(--tg-theme-secondary-bg-color, #f4f4f5); color: var(--tg-theme-text-color, #000); font-size: 14px; }
         
-        /* DISEÑO AISLADO */
+        /* NUEVO DISEÑO AISLADO */
+        /* 1. Fila para las horas (reparto exacto al 50%) */
         .row-horas { display: flex; gap: 15px; margin-bottom: 15px; }
         .row-horas .form-group { flex: 1; margin-bottom: 0; }
 
+        /* 2. Fila para el personal (reparto asimétrico 65% / 35%) */
         .usuario-row { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; }
         .usuario-row select { width: 65%; }
         .usuario-row input { width: 35%; }
@@ -63,18 +65,21 @@
     <div id="informe-container"></div>
     <button id="btn-copiar" style="display:none;" onclick="copiarInforme()">Copiar Informe al Portapapeles</button>
 
-   window.onload = function() {
-            // 1. Añadimos un timestamp para engañar a la caché de Telegram y forzar una lectura nueva
-            const urlSinCache = API_URL + "?t=" + new Date().getTime();
+    <script>
+        const webapp = window.Telegram.WebApp;
+        webapp.ready();
+        webapp.expand();
 
-            fetch(urlSinCache, {
-                method: "GET",
-                redirect: "follow" // 2. Obligatorio para que las apps móviles sigan el desvío interno de Google
-            })
-            .then(res => {
-                if (!res.ok) throw new Error("Fallo de red o bloqueo HTTP " + res.status);
-                return res.json();
-            })
+        // ⚠️ REEMPLAZAR CON TU URL DE GOOGLE APPS SCRIPT
+        const API_URL = "TU_URL_DE_GOOGLE_AQUI";
+
+        let listaPersonal = [];
+
+        document.getElementById('fecha').valueAsDate = new Date();
+
+        window.onload = function() {
+            fetch(API_URL)
+            .then(res => res.json())
             .then(datos => {
                 if (datos.estado === "exito") {
                     listaPersonal = datos.personal;
@@ -82,17 +87,6 @@
                     document.getElementById('btn-add-user').style.display = "block";
                     document.getElementById('btn-submit').style.display = "block";
                     agregarFilaUsuario();
-                } else {
-                    document.getElementById('loading-overlay').innerText = "❌ Error en Google: " + datos.mensaje;
-                    document.getElementById('loading-overlay').style.color = "red";
-                }
-            })
-            .catch(err => {
-                // 3. Imprimimos el error técnico literal en pantalla para saber qué está bloqueando la app
-                document.getElementById('loading-overlay').innerText = "❌ Fallo técnico: " + err.message;
-                document.getElementById('loading-overlay').style.color = "red";
-            });
-        };
                 } else {
                     document.getElementById('loading-overlay').innerText = "❌ Error al cargar personal.";
                     document.getElementById('loading-overlay').style.color = "red";
@@ -107,7 +101,7 @@
         function agregarFilaUsuario() {
             const container = document.getElementById('usuarios-container');
             const row = document.createElement('div');
-            row.className = 'usuario-row'; 
+            row.className = 'usuario-row'; // Usa la clase de personal
             
             let opcionesHTML = `<option value="">Seleccionar...</option>`;
             listaPersonal.forEach(persona => {
@@ -132,7 +126,6 @@
             return min2 - min1;
         }
 
-        // LÍNEA RESTAURADA: Declaración de la función procesarDatos
         function procesarDatos() {
             const estadoDiv = document.getElementById("mensaje-estado");
             const informeDiv = document.getElementById("informe-container");
@@ -154,16 +147,7 @@
             }
 
             const idJornada = "J-" + fecha.replace(/-/g, "");
-            
-            const dateObj = new Date(fecha);
-            const dd = String(dateObj.getDate()).padStart(2, '0');
-            const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
-            const yy = String(dateObj.getFullYear()).slice(-2);
-            
-            const hIniLimpia = horaInicio.replace(":", "");
-            const hFinLimpia = horaFin.replace(":", "");
-            const idTramo = `T-${hIniLimpia}${hFinLimpia}${dd}${mm}${yy}`;
-
+            const idTramo = "T-" + horaInicio.replace(":", "");
             const minutosRestantes = calcularMinutos(horaInicio, horaFin);
 
             const filasUsuarios = document.querySelectorAll('.usuario-row');
@@ -185,7 +169,6 @@
             const payload = {
                 id_jornada: idJornada,
                 id_tramo: idTramo,
-                fecha: fecha,
                 hora_inicio_tramo: horaInicio,
                 minutos_restantes: minutosRestantes,
                 num_tandas: document.getElementById("num_tandas").value,
@@ -225,5 +208,3 @@
     </script>
 </body>
 </html>
-
-
