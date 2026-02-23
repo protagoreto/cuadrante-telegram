@@ -6,118 +6,168 @@
     <title>Gestión de Cuadrantes</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        /* Diseño adaptativo usando variables nativas de Telegram */
-        body {
-            font-family: sans-serif;
-            background-color: var(--tg-theme-bg-color, #ffffff);
-            color: var(--tg-theme-text-color, #000000);
-            padding: 15px;
-            margin: 0;
-        }
+        body { font-family: sans-serif; background-color: var(--tg-theme-bg-color, #fff); color: var(--tg-theme-text-color, #000); padding: 15px; margin: 0; }
         .form-group { margin-bottom: 15px; }
         label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 14px; }
-        input {
-            width: 100%;
-            padding: 10px;
-            box-sizing: border-box;
-            border: 1px solid var(--tg-theme-hint-color, #ccc);
-            border-radius: 8px;
-            background-color: var(--tg-theme-secondary-bg-color, #f4f4f5);
-            color: var(--tg-theme-text-color, #000000);
-        }
-        button {
-            width: 100%;
-            padding: 12px;
-            background-color: var(--tg-theme-button-color, #3390ec);
-            color: var(--tg-theme-button-text-color, #ffffff);
-            border: none;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-            margin-top: 10px;
-        }
-        #mensaje-estado { margin-top: 15px; font-size: 14px; text-align: center; font-weight: bold; }
+        input { width: 100%; padding: 10px; box-sizing: border-box; border: 1px solid var(--tg-theme-hint-color, #ccc); border-radius: 8px; background-color: var(--tg-theme-secondary-bg-color, #f4f4f5); color: var(--tg-theme-text-color, #000); }
+        .row { display: flex; gap: 10px; margin-bottom: 10px; }
+        .row input { width: 50%; }
+        button { width: 100%; padding: 12px; background-color: var(--tg-theme-button-color, #3390ec); color: var(--tg-theme-button-text-color, #fff); border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+        .btn-secondary { background-color: var(--tg-theme-hint-color, #999); margin-bottom: 15px; }
+        #informe-container { display: none; margin-top: 20px; padding: 15px; background-color: var(--tg-theme-secondary-bg-color, #f4f4f5); border-radius: 8px; white-space: pre-wrap; font-family: monospace; font-size: 14px; }
     </style>
 </head>
 <body>
 
-    <h2>Nuevo Reparto</h2>
+    <h2>Configurar Reparto</h2>
     
     <div class="form-group">
-        <label>ID Jornada</label>
-        <input type="text" id="id_jornada" value="J-001">
-    </div>
-    
-    <div class="form-group">
-        <label>ID Tramo</label>
-        <input type="text" id="id_tramo" value="T-002">
+        <label>Fecha de la Jornada</label>
+        <input type="date" id="fecha" required>
     </div>
 
-    <div class="form-group">
-        <label>Hora de Inicio</label>
-        <input type="time" id="hora_inicio" value="10:00">
-    </div>
-
-    <div class="form-group">
-        <label>Minutos a Repartir</label>
-        <input type="number" id="minutos_restantes" value="150">
+    <div class="row">
+        <div class="form-group" style="width: 50%;">
+            <label>Hora Inicio</label>
+            <input type="time" id="hora_inicio" required>
+        </div>
+        <div class="form-group" style="width: 50%;">
+            <label>Hora Fin</label>
+            <input type="time" id="hora_fin" required>
+        </div>
     </div>
 
     <div class="form-group">
         <label>Número de Tandas</label>
-        <input type="number" id="num_tandas" value="2">
+        <input type="number" id="num_tandas" value="1" min="1">
     </div>
 
-    <button onclick="enviarDatos()">Calcular y Guardar Cuadrante</button>
-    <div id="mensaje-estado"></div>
+    <h3>Personal Activo</h3>
+    <div id="usuarios-container">
+        <div class="row usuario-row">
+            <input type="text" class="user-id" placeholder="ID (Ej: P1)">
+            <input type="number" class="user-sorteo" placeholder="Nº Sorteo">
+        </div>
+    </div>
+    <button class="btn-secondary" onclick="agregarFilaUsuario()">+ Añadir otro componente</button>
+
+    <button onclick="procesarDatos()">Generar Cuadrante</button>
+    
+    <div id="mensaje-estado" style="margin-top: 10px; text-align: center; font-weight: bold;"></div>
+    
+    <div id="informe-container"></div>
+    <button id="btn-copiar" style="display:none;" onclick="copiarInforme()">Copiar Informe al Portapapeles</button>
 
     <script>
-        // Inicializa la app dentro de Telegram
         const webapp = window.Telegram.WebApp;
         webapp.ready();
-        webapp.expand(); // Abre la app a pantalla completa
+        webapp.expand();
 
-        // PEGA TU URL DE GOOGLE APPS SCRIPT AQUÍ
-        const API_URL = "https://script.google.com/macros/s/AKfycbykEL_-xeD3I78sA6H22mZy50w6ECAbye9LVBZ2iLZ7w123Pt6FJ8f4kG48W0DmQTU0/exec";
+        // ⚠️ REEMPLAZAR CON TU URL DE GOOGLE APPS SCRIPT
+        const API_URL = "TU_URL_DE_GOOGLE_AQUI";
 
-        function enviarDatos() {
+        // Asignar fecha actual por defecto
+        document.getElementById('fecha').valueAsDate = new Date();
+
+        function agregarFilaUsuario() {
+            const container = document.getElementById('usuarios-container');
+            const row = document.createElement('div');
+            row.className = 'row usuario-row';
+            row.innerHTML = `
+                <input type="text" class="user-id" placeholder="ID (Ej: P1)">
+                <input type="number" class="user-sorteo" placeholder="Nº Sorteo">
+            `;
+            container.appendChild(row);
+        }
+
+        function calcularMinutos(inicio, fin) {
+            let [h1, m1] = inicio.split(':').map(Number);
+            let [h2, m2] = fin.split(':').map(Number);
+            let min1 = h1 * 60 + m1;
+            let min2 = h2 * 60 + m2;
+            if (min2 < min1) min2 += 24 * 60; // Caso en el que el turno cruza la medianoche
+            return min2 - min1;
+        }
+
+        function procesarDatos() {
             const estadoDiv = document.getElementById("mensaje-estado");
-            estadoDiv.innerText = "Calculando y enviando datos...";
+            const informeDiv = document.getElementById("informe-container");
+            const btnCopiar = document.getElementById("btn-copiar");
+            
+            estadoDiv.innerText = "Calculando...";
             estadoDiv.style.color = "orange";
+            informeDiv.style.display = "none";
+            btnCopiar.style.display = "none";
 
-            // Recopilamos los datos de los inputs
+            const fecha = document.getElementById("fecha").value;
+            const horaInicio = document.getElementById("hora_inicio").value;
+            const horaFin = document.getElementById("hora_fin").value;
+            
+            if (!fecha || !horaInicio || !horaFin) {
+                estadoDiv.innerText = "Faltan datos de tiempo.";
+                estadoDiv.style.color = "red";
+                return;
+            }
+
+            // Automatización de IDs y Minutos
+            const idJornada = "J-" + fecha.replace(/-/g, "");
+            const idTramo = "T-" + horaInicio.replace(":", "");
+            const minutosRestantes = calcularMinutos(horaInicio, horaFin);
+
+            // Recopilación dinámica de usuarios
+            const filasUsuarios = document.querySelectorAll('.usuario-row');
+            let personalActivo = [];
+            filasUsuarios.forEach(fila => {
+                let id = fila.querySelector('.user-id').value.trim().toUpperCase();
+                let sorteo = parseInt(fila.querySelector('.user-sorteo').value);
+                if (id && !isNaN(sorteo)) {
+                    personalActivo.push({ id_usuario: id, sorteo: sorteo });
+                }
+            });
+
+            if (personalActivo.length === 0) {
+                estadoDiv.innerText = "Añade al menos un usuario válido con su sorteo.";
+                estadoDiv.style.color = "red";
+                return;
+            }
+
             const payload = {
-                id_jornada: document.getElementById("id_jornada").value,
-                id_tramo: document.getElementById("id_tramo").value,
-                hora_inicio_tramo: document.getElementById("hora_inicio").value,
-                minutos_restantes: document.getElementById("minutos_restantes").value,
+                id_jornada: idJornada,
+                id_tramo: idTramo,
+                hora_inicio_tramo: horaInicio,
+                minutos_restantes: minutosRestantes,
                 num_tandas: document.getElementById("num_tandas").value,
-                
-                // Para esta primera prueba de conexión, enviamos un array estático de personal.
-                // Una vez confirmemos que llega bien a Google, crearemos los inputs dinámicos.
-                personal_activo: [
-                    { id_usuario: "P1", sorteo: 1 },
-                    { id_usuario: "P2", sorteo: 2 }
-                ]
+                personal_activo: personalActivo
             };
 
-            // Envío de la petición a tu API
             fetch(API_URL, {
                 method: "POST",
                 body: JSON.stringify(payload)
             })
-            .then(respuesta => respuesta.json())
+            .then(res => res.json())
             .then(datos => {
-                estadoDiv.innerText = datos.mensaje;
-                estadoDiv.style.color = datos.estado === "exito" ? "green" : "red";
-                // Añade vibración táctil de éxito nativa de Telegram
-                webapp.HapticFeedback.notificationOccurred("success"); 
+                if (datos.estado === "exito") {
+                    estadoDiv.innerText = "Guardado con éxito.";
+                    estadoDiv.style.color = "green";
+                    informeDiv.innerText = datos.informe;
+                    informeDiv.style.display = "block";
+                    btnCopiar.style.display = "block";
+                    webapp.HapticFeedback.notificationOccurred("success");
+                } else {
+                    estadoDiv.innerText = "Error: " + datos.mensaje;
+                    estadoDiv.style.color = "red";
+                }
             })
-            .catch(error => {
-                estadoDiv.innerText = "Error de conexión con la base de datos.";
+            .catch(err => {
+                estadoDiv.innerText = "Error de conexión.";
                 estadoDiv.style.color = "red";
-                webapp.HapticFeedback.notificationOccurred("error");
+            });
+        }
+
+        function copiarInforme() {
+            const texto = document.getElementById("informe-container").innerText;
+            navigator.clipboard.writeText(texto).then(() => {
+                webapp.showAlert("Informe copiado. Ya puedes pegarlo en el chat.");
             });
         }
     </script>
