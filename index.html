@@ -9,12 +9,14 @@
         body { font-family: sans-serif; background-color: var(--tg-theme-bg-color, #fff); color: var(--tg-theme-text-color, #000); padding: 15px; margin: 0; }
         .form-group { margin-bottom: 15px; }
         label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 14px; }
-        input { width: 100%; padding: 10px; box-sizing: border-box; border: 1px solid var(--tg-theme-hint-color, #ccc); border-radius: 8px; background-color: var(--tg-theme-secondary-bg-color, #f4f4f5); color: var(--tg-theme-text-color, #000); }
-        .row { display: flex; gap: 10px; margin-bottom: 10px; }
-        .row input { width: 50%; }
+        input, select { width: 100%; padding: 10px; box-sizing: border-box; border: 1px solid var(--tg-theme-hint-color, #ccc); border-radius: 8px; background-color: var(--tg-theme-secondary-bg-color, #f4f4f5); color: var(--tg-theme-text-color, #000); font-size: 14px; }
+        .row { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; }
+        .row select { width: 65%; }
+        .row input { width: 35%; }
         button { width: 100%; padding: 12px; background-color: var(--tg-theme-button-color, #3390ec); color: var(--tg-theme-button-text-color, #fff); border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 10px; }
         .btn-secondary { background-color: var(--tg-theme-hint-color, #999); margin-bottom: 15px; }
         #informe-container { display: none; margin-top: 20px; padding: 15px; background-color: var(--tg-theme-secondary-bg-color, #f4f4f5); border-radius: 8px; white-space: pre-wrap; font-family: monospace; font-size: 14px; }
+        #loading-overlay { text-align: center; font-weight: bold; color: var(--tg-theme-hint-color, #999); margin-bottom: 15px; }
     </style>
 </head>
 <body>
@@ -43,15 +45,12 @@
     </div>
 
     <h3>Personal Activo</h3>
-    <div id="usuarios-container">
-        <div class="row usuario-row">
-            <input type="text" class="user-id" placeholder="ID (Ej: P1)">
-            <input type="number" class="user-sorteo" placeholder="Nº Sorteo">
-        </div>
-    </div>
-    <button class="btn-secondary" onclick="agregarFilaUsuario()">+ Añadir otro componente</button>
+    <div id="loading-overlay">⏳ Cargando base de datos del personal...</div>
+    <div id="usuarios-container"></div>
+    
+    <button class="btn-secondary" id="btn-add-user" onclick="agregarFilaUsuario()" style="display:none;">+ Añadir otro componente</button>
 
-    <button onclick="procesarDatos()">Generar Cuadrante</button>
+    <button onclick="procesarDatos()" id="btn-submit" style="display:none;">Generar Cuadrante</button>
     
     <div id="mensaje-estado" style="margin-top: 10px; text-align: center; font-weight: bold;"></div>
     
@@ -66,15 +65,48 @@
         // ⚠️ REEMPLAZAR CON TU URL DE GOOGLE APPS SCRIPT
         const API_URL = "https://script.google.com/macros/s/AKfycbykEL_-xeD3I78sA6H22mZy50w6ECAbye9LVBZ2iLZ7w123Pt6FJ8f4kG48W0DmQTU0/exec";
 
+        let listaPersonal = [];
+
         // Asignar fecha actual por defecto
         document.getElementById('fecha').valueAsDate = new Date();
+
+        // Cargar personal desde Google Sheets al abrir la app
+        window.onload = function() {
+            fetch(API_URL)
+            .then(res => res.json())
+            .then(datos => {
+                if (datos.estado === "exito") {
+                    listaPersonal = datos.personal;
+                    document.getElementById('loading-overlay').style.display = "none";
+                    document.getElementById('btn-add-user').style.display = "block";
+                    document.getElementById('btn-submit').style.display = "block";
+                    agregarFilaUsuario(); // Añade la primera fila vacía
+                } else {
+                    document.getElementById('loading-overlay').innerText = "❌ Error al cargar personal.";
+                    document.getElementById('loading-overlay').style.color = "red";
+                }
+            })
+            .catch(err => {
+                document.getElementById('loading-overlay').innerText = "❌ Error de red.";
+                document.getElementById('loading-overlay').style.color = "red";
+            });
+        };
 
         function agregarFilaUsuario() {
             const container = document.getElementById('usuarios-container');
             const row = document.createElement('div');
             row.className = 'row usuario-row';
+            
+            // Construir las opciones del desplegable dinámicamente
+            let opcionesHTML = `<option value="">Seleccionar...</option>`;
+            listaPersonal.forEach(persona => {
+                opcionesHTML += `<option value="${persona.id}">${persona.nombre}</option>`;
+            });
+
             row.innerHTML = `
-                <input type="text" class="user-id" placeholder="ID (Ej: P1)">
+                <select class="user-id">
+                    ${opcionesHTML}
+                </select>
                 <input type="number" class="user-sorteo" placeholder="Nº Sorteo">
             `;
             container.appendChild(row);
@@ -85,7 +117,7 @@
             let [h2, m2] = fin.split(':').map(Number);
             let min1 = h1 * 60 + m1;
             let min2 = h2 * 60 + m2;
-            if (min2 < min1) min2 += 24 * 60; // Caso en el que el turno cruza la medianoche
+            if (min2 < min1) min2 += 24 * 60;
             return min2 - min1;
         }
 
@@ -109,17 +141,16 @@
                 return;
             }
 
-            // Automatización de IDs y Minutos
             const idJornada = "J-" + fecha.replace(/-/g, "");
             const idTramo = "T-" + horaInicio.replace(":", "");
             const minutosRestantes = calcularMinutos(horaInicio, horaFin);
 
-            // Recopilación dinámica de usuarios
             const filasUsuarios = document.querySelectorAll('.usuario-row');
             let personalActivo = [];
             filasUsuarios.forEach(fila => {
-                let id = fila.querySelector('.user-id').value.trim().toUpperCase();
+                let id = fila.querySelector('.user-id').value;
                 let sorteo = parseInt(fila.querySelector('.user-sorteo').value);
+                // Validamos que se haya seleccionado un nombre del desplegable y puesto un número
                 if (id && !isNaN(sorteo)) {
                     personalActivo.push({ id_usuario: id, sorteo: sorteo });
                 }
@@ -173,5 +204,3 @@
     </script>
 </body>
 </html>
-
-
