@@ -126,17 +126,7 @@
             return min2 - min1;
         }
 
-        function procesarDatos() {
-            const estadoDiv = document.getElementById("mensaje-estado");
-            const informeDiv = document.getElementById("informe-container");
-            const btnCopiar = document.getElementById("btn-copiar");
-            
-            estadoDiv.innerText = "Calculando...";
-            estadoDiv.style.color = "orange";
-            informeDiv.style.display = "none";
-            btnCopiar.style.display = "none";
-
-            const fecha = document.getElementById("fecha").value;
+        const fecha = document.getElementById("fecha").value;
             const horaInicio = document.getElementById("hora_inicio").value;
             const horaFin = document.getElementById("hora_fin").value;
             
@@ -146,9 +136,22 @@
                 return;
             }
 
+            // 1. Automatización del ID Jornada
             const idJornada = "J-" + fecha.replace(/-/g, "");
-            const idTramo = "T-" + horaInicio.replace(":", "");
+            
+            // 2. Nueva codificación del ID Tramo (T-HHMMHHMMDDMMYY)
+            const dateObj = new Date(fecha);
+            const dd = String(dateObj.getDate()).padStart(2, '0');
+            const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
+            const yy = String(dateObj.getFullYear()).slice(-2);
+            
+            const hIniLimpia = horaInicio.replace(":", "");
+            const hFinLimpia = horaFin.replace(":", "");
+            const idTramo = `T-${hIniLimpia}${hFinLimpia}${dd}${mm}${yy}`;
+
             const minutosRestantes = calcularMinutos(horaInicio, horaFin);
+
+            // ... (el código de recopilación de filasUsuarios sigue igual) ...
 
             const filasUsuarios = document.querySelectorAll('.usuario-row');
             let personalActivo = [];
@@ -208,3 +211,4 @@
     </script>
 </body>
 </html>
+
