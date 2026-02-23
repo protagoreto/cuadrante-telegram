@@ -11,12 +11,10 @@
         label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 14px; }
         input, select { width: 100%; padding: 10px; box-sizing: border-box; border: 1px solid var(--tg-theme-hint-color, #ccc); border-radius: 8px; background-color: var(--tg-theme-secondary-bg-color, #f4f4f5); color: var(--tg-theme-text-color, #000); font-size: 14px; }
         
-        /* NUEVO DISEÑO AISLADO */
-        /* 1. Fila para las horas (reparto exacto al 50%) */
+        /* DISEÑO AISLADO */
         .row-horas { display: flex; gap: 15px; margin-bottom: 15px; }
         .row-horas .form-group { flex: 1; margin-bottom: 0; }
 
-        /* 2. Fila para el personal (reparto asimétrico 65% / 35%) */
         .usuario-row { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; }
         .usuario-row select { width: 65%; }
         .usuario-row input { width: 35%; }
@@ -70,7 +68,6 @@
         webapp.ready();
         webapp.expand();
 
-        // ⚠️ REEMPLAZAR CON TU URL DE GOOGLE APPS SCRIPT
         const API_URL = "https://script.google.com/macros/s/AKfycbykEL_-xeD3I78sA6H22mZy50w6ECAbye9LVBZ2iLZ7w123Pt6FJ8f4kG48W0DmQTU0/exec";
 
         let listaPersonal = [];
@@ -101,7 +98,7 @@
         function agregarFilaUsuario() {
             const container = document.getElementById('usuarios-container');
             const row = document.createElement('div');
-            row.className = 'usuario-row'; // Usa la clase de personal
+            row.className = 'usuario-row'; 
             
             let opcionesHTML = `<option value="">Seleccionar...</option>`;
             listaPersonal.forEach(persona => {
@@ -126,7 +123,18 @@
             return min2 - min1;
         }
 
-        const fecha = document.getElementById("fecha").value;
+        // LÍNEA RESTAURADA: Declaración de la función procesarDatos
+        function procesarDatos() {
+            const estadoDiv = document.getElementById("mensaje-estado");
+            const informeDiv = document.getElementById("informe-container");
+            const btnCopiar = document.getElementById("btn-copiar");
+            
+            estadoDiv.innerText = "Calculando...";
+            estadoDiv.style.color = "orange";
+            informeDiv.style.display = "none";
+            btnCopiar.style.display = "none";
+
+            const fecha = document.getElementById("fecha").value;
             const horaInicio = document.getElementById("hora_inicio").value;
             const horaFin = document.getElementById("hora_fin").value;
             
@@ -136,10 +144,8 @@
                 return;
             }
 
-            // 1. Automatización del ID Jornada
             const idJornada = "J-" + fecha.replace(/-/g, "");
             
-            // 2. Nueva codificación del ID Tramo (T-HHMMHHMMDDMMYY)
             const dateObj = new Date(fecha);
             const dd = String(dateObj.getDate()).padStart(2, '0');
             const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
@@ -150,8 +156,6 @@
             const idTramo = `T-${hIniLimpia}${hFinLimpia}${dd}${mm}${yy}`;
 
             const minutosRestantes = calcularMinutos(horaInicio, horaFin);
-
-            // ... (el código de recopilación de filasUsuarios sigue igual) ...
 
             const filasUsuarios = document.querySelectorAll('.usuario-row');
             let personalActivo = [];
@@ -172,7 +176,7 @@
             const payload = {
                 id_jornada: idJornada,
                 id_tramo: idTramo,
-                fecha: fecha, // NUEVO DATO ENVIADO
+                fecha: fecha,
                 hora_inicio_tramo: horaInicio,
                 minutos_restantes: minutosRestantes,
                 num_tandas: document.getElementById("num_tandas").value,
@@ -212,7 +216,3 @@
     </script>
 </body>
 </html>
-
-
-
-
